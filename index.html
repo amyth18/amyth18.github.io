@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="styles.css">
+<script src="https://unpkg.com/d3@5.6.0/dist/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-annotation/1.12.1/d3-annotation.min.js"></script>
+<script type="text/javascript">
+    state = {
+      currSceneNo: 1,
+      data: null,
+      chartWidth: 850,
+      chartHeight: 420
+    }
+    scenes = {
+      1: {
+        defaultDimension: "world",
+        dimensions: [
+            {
+                name: 'world',
+                label: 'World',
+                title: 'CO2 Emission Growth (World)'
+            },
+            {
+                name: 'region',
+                label: 'By Regions',
+                title: 'CO2 Emission Growth (By Regions)'
+            },
+            {
+              name: 'incomeGroup',
+              label : 'By Income Group',
+              title: 'CO2 Emission Growth (By Income Groups)'
+            }
+        ]
+      },
+      2: {
+        defaultDimension: "incomeGroup",
+        dimensions: [
+            {
+              name: 'incomeGroup',
+              label : 'By Income Group',
+              title: '% Share of CO2 Emissions in 2016 (By Income Group)'
+            },
+            {
+              name: 'region',
+              label: 'By Regions',
+              title: '% Share of CO2 Emissions in 2016 (By Region)'
+            }
+        ]
+      },
+      3: {
+        defaultDimension: "world",
+        dimensions: [
+          {
+            name: 'world',
+            label: 'World',
+            title: 'CO2 Emissions Growth By Fuel Type'
+          }
+        ]
+      },
+      4: {
+        defaultDimension: "world",
+        dimensions: [
+          {
+            name: 'world',
+            label: 'World',
+            title: 'Growth In % Share Of CO2 Emissions By Purpose'
+          }
+        ]
+      }
+    }
+
+    dimensionValues = {
+      world: ['World'],
+      incomeGroup: ['High income', 'Low income', 'Lower middle income','Upper middle income'],
+      region: ['Latin America & Caribbean', 'South Asia', 'Sub-Saharan Africa',
+               'Europe & Central Asia', 'Middle East & North Africa',
+               'East Asia & Pacific', 'North America']
+    }
+</script>
+</head>
+
+<body onload="showScene(1)">
+  <div class="title">
+    CO2 Emissions Continue Unabated
+  </div>
+  <div class="pagination">
+    <a id="left" href="javascript:prevScene()">&laquo;Prev</a>
+    <a id="p1" class="active" href="javascript:showScene(1)">1</a>
+    <a id="p2" href="javascript:showScene(2)">2</a>
+    <a id="p3" href="javascript:showScene(3)">3</a>
+    <a id="p4" href="javascript:showScene(4)">4</a>
+    <a id="right" href="javascript:nextScene()">Next&raquo;</a>
+  </div>
+  <div class="chart">
+    <div id="caption" class="caption">This is a nice chart</div>
+    <div id="dimensions" class="dimensions"></div>
+    <div id="mychart"></div>
+  </div>
+  <div class="message">
+    <p> Message about the chart!
+  <div>
+
+<script>
+  // 1. Need to find a way to create .csv file with required fields. Use sqllite.
+  // 2. Create a better data structure for faster lookup.
+  // 3. Reduce the size of the file if required.
+
+  function loadData(callback) {
+    const uri = "https://gist.githubusercontent.com/amyth18/bbb8fbcaaccc3faf653e7146fdf993d1/raw/0301f675d8fcb9b6638a1866aaf4b23953ed5d36/co2data.csv"
+      d3.csv(uri).then(data => {
+            state.dataMap = {}
+            data.forEach(item => {
+              const series = []
+              for (year = 1960; year<=2016; year++) {
+                series.push({
+                  "year": +year,
+                  "value": parseInt(item[year])
+                })
+              }
+              if (state.dataMap[item['Country Name']] == null) {
+                state.dataMap[item['Country Name']] = {}
+              }
+              state.dataMap[item['Country Name']]
+                           [item['Indicator Code']] = series
+            })
+            callback()
+          });
+  }
+
+  function nextScene() {
+    if (state.currSceneNo < 6) {
+      showScene(state.currSceneNo+1)
+    }
+  }
+
+  function prevScene() {
+    if (state.currSceneNo > 1) {
+      showScene(state.currSceneNo-1)
+    }
+  }
+
+  function showSceneCaption(sceneNo, dimension) {
+    const title = scenes[sceneNo].dimensions.filter(
+                      d => {return d.name == dimension})[0].title
+    console.log(`title=${title}`)
+    const html = `<p>${title}`;
+    document.getElementById("caption").innerHTML = html;
+  }
+
+  function showDimensions(sceneNo, dimension) {
+    console.log(`${sceneNo}, ${dimension}`)
+    scenes[sceneNo].dimensions.forEach(d => {
+      console.log(`showScene(${sceneNo}, ${d.name})`)
+      d3.select("#dimensions")
+        .append('input')
+          .attr('id', d.name)
+          .attr('type', 'radio')
+          .attr('name', 'dimension')
+          .attr('value', d.name)
+          .attr('onclick', `showScene(${sceneNo}, '${d.name}')`)
+
+      if (d.name == dimension) {
+          console.log(d.name)
+          document.getElementById(d.name).checked = true
+      }
+
+      d3.select("#dimensions")
+        .append('label').html(d.label)
+    })
+  }
+
+  function getSeries(measure, dimension) {
+    dimValues = dimensionValues[dimension];
+    return dimValues.map(dim => {
+        return {
+          "key": dim,
+          "values": state.dataMap[dim][measure]
+        }
+      });
+  }
+
+  function showLegend(svg, width, keyValues, colorScale) {
+    keys = Object.keys(keyValues)
+    svg.append('g')
+       .selectAll('legend-circles')
+       .data(keys)
+       .enter()
+       .append('circle')
+         .attr('cx', width+10)
+         .attr('cy', (d, i) => {return 20+i*25})
+         .attr('r', 5)
+         .attr('fill', d => colorScale(d))
+
+    svg.append('g')
+      .selectAll('legend-lables')
+      .data(keys)
+      .enter()
+      .append('text')
+        .attr('x', width+20)
+        .attr('y', (d, i) => {return 20+i*25})
+        .attr('r', 5)
+        .attr('fill', d => colorScale(d))
+        .text(k => keyValues[k])
+        .attr('text-anchor', 'left')
+        .attr('font-size', '0.75em')
+  }
+
+  function showChart1a(dimension) {
+    // get series to plot
+    seriesMap = getSeries("EN.ATM.CO2E.KT", dimension)
+
+    var margin = {top: 20, right: 180, bottom: 50, left: 60};
+    width = state.chartWidth - margin.left - margin.right;
+    height = state.chartHeight - margin.top - margin.bottom;
+
+    dimNames = seriesMap.map(d => d.key)
+
+    // append the svg object to the body of the page
+    var svg = d3.select("#mychart")
+      .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+        .attr("transform",
+              "translate(" + margin.left + "," + margin.top + ")");
+
+      // X-Axis
+    var xs = d3.scalePoint()
+      .domain(seriesMap[0]["values"].map(d => {return d.year}))
+      .range([ 0, width ])
+    svg.append("g")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(xs).tickValues(
+            xs.domain().filter((d, i) => i % 4 === 0)));
+    svg.append("text")
+      .attr("transform",
+            `translate(${width/2}, ${height+40})`)
+      .attr("class", "axis-label")
+      .text("Year")
+
+    // Y-axis
+    const yMax = d3.max(seriesMap.map(d => {return d3.max(d["values"], e => e.value)}))
+    console.log(`yMax = ${yMax}`)
+    var ys = d3.scaleLinear()
+      .domain([0, yMax])
+      .range([ height, 0 ]);
+    svg.append("g")
+      .call(d3.axisLeft(ys).tickFormat(d => {console.log(d);
+                            v = parseInt(d)/1000000.0;
+                            console.log(v); return `${v}M`}));
+    svg.append("text")
+          .attr("transform", "rotate(-90)")
+          .attr("y", -margin.left+20)
+          .attr("x", -(height / 2))
+          .attr("class", "axis-label")
+          .text("C02 Emissions In Kilotons");
+
+    const line = d3.line()
+        .x(d => xs(d.year))
+        .y(d => ys(d.value))
+        .curve(d3.curveBasis);
+
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
+                         .domain(seriesMap.map(d => d.key));
+
+    // Add the line
+    svg.append('g')
+    .selectAll('.line-path')
+    .data(seriesMap)
+    .enter()
+    .append('path')
+      .attr('class', 'line-path')
+      .attr('d', d => line(d.values))
+      .attr('stroke', d => colorScale(d.key));
+
+    keyValues = dimNames.reduce((o, val) =>
+                      { o[val] = val; return o; }, {});
+
+    showLegend(svg, width, keyValues, colorScale)
+    // annotations.
+    const annotations = []
+    if (dimension == 'world') {
+      annotations.push(
+        ...
+        [
+          {
+            note: {
+              label: "Total CO2 emissions between 1996-2016 was more " +
+                     "than 2x the emissions in 1960-2016.",
+              align: "middle",
+              lineType: "none"
+            },
+            type: d3.annotationCalloutRect,
+            subject: {
+              width: (xs(2016) - xs(1996)),
+              height: height
+            },
+            disable: ["connector"],
+            x: xs(1996),
+            y: 0,
+            dy: ys(20000000),
+            dx: (xs(2016) - xs(2000))/2
+          }
+        ]
+      )
+    } else if (dimension == 'region') {
+      rg1 = 'East Asia & Pacific'
+      rg2 = 'Europe & Central Asia'
+      yr1 = 2000
+      yr2 = 1988
+
+      const asia = seriesMap.find(d => {return d.key == rg1})
+      const y1 = ys(asia['values'].find(d => {return d.year == yr1}).value)
+      const x1 = xs(yr1)
+
+      const europe = seriesMap.find(d => {return d.key == rg2})
+      const y2 = ys(europe['values'].find(d => {return d.year == yr2}).value)
+      const x2 = xs(yr2)
+
+      annotations.push(
+        ...
+        [
+          {
+            note: {
+              label:  `Almost all the growth came from East Asia & ` +
+                      `Pacific region after 2000.`
+            },
+            connector: {
+              end: "arrow",
+              type: "line",
+              points: 2,
+              lineType: "horizontal"
+            },
+            x: x1,
+            y: y1,
+            dy: -120,
+            dx: -10
+          },
+          {
+            note: {
+              label:  `Europe & Central Asia saw the maximum decline since 1988.`
+            },
+            connector: {
+              end: "arrow",
+              type: "line",
+              points: 2,
+              lineType: "horizontal"
+            },
+            x: x2,
+            y: y2,
+            dy: -40,
+            dx: -80
+          }
+        ]
+      )
+
+    } else if (dimension == 'incomeGroup') {
+      ig1 = 'Upper middle income'
+      yr1 = 2004
+
+      const uig = seriesMap.find(d => {return d.key == ig1})
+      const y1 = ys(uig['values'].find(d => {return d.year == yr1}).value)
+      const x1 = xs(yr1)
+
+      annotations.push(
+        ...
+        [
+          {
+            note: {
+              label:  `Most of the growth in CO2 emissions has ` +
+                      `has come from ${ig1} group.`
+            },
+            connector: {
+              end: "arrow",
+              type: "line",
+              points: 2,
+              lineType: "horizontal"
+            },
+            x: x1,
+            y: y1,
+            dy: -60,
+            dx: -60
+          }
+        ]
+      )
+    }
+
+    const makeAnnotations = d3.annotation().annotations(annotations)
+    svg.append("g")
+      .call(makeAnnotations)
+  }
+
+  // showChart2a
+  function showChart2a(dimension, year=2016) {
+    // data to plot
+    total = state.dataMap['World']['EN.ATM.CO2E.KT'].filter(d => d.year == 2016)[0].value
+    data = dimensionValues[dimension].map(dv =>  {
+      return {
+          key: dv,
+          value: +parseFloat((state.dataMap[dv]['EN.ATM.CO2E.KT']
+                                   .filter(d => d.year == 2016)[0]
+                                   .value/total)*100).toFixed(2)
+      }
+    })
+
+    var margin = {top: 20, right: 180, bottom: 50, left: 60};
+    width = state.chartWidth - margin.left - margin.right;
+    height = state.chartHeight - margin.top - margin.bottom;
+
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
+                         .domain(data.map(d => d.key));
+
+    var tooltip = d3.select("body")
+                    .append("div")
+                    .attr("class", "toolTip");
+
+    // append the svg object to the body of the page
+    var svg = d3.select("#mychart")
+      .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+        .attr("transform",
+              "translate(" + margin.left + "," + margin.top + ")");
+
+      // Add X axis --> it is a date format
+    var xs = d3.scaleBand()
+      .domain(dimensionValues[dimension])
+      .range([0, width])
+      .padding(0.1)
+
+    svg.append("g")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(xs))
+
+    // Add Y axis
+    var ys = d3.scaleLinear()
+      .domain([0, d3.max(data, d => d.value)])
+      .range([ height, 0 ]);
+
+    svg.append("g")
+      .call(d3.axisLeft(ys).tickFormat(d => {
+        return `${d}%`
+      }));
+
+    svg.append("text")
+          .attr("transform", "rotate(-90)")
+          .attr("y", -margin.left+20)
+          .attr("x", -(height / 2))
+          .attr("class", "axis-label")
+          .text("% Share of C02 Emissions");
+
+    svg.append('g')
+    .selectAll('rect')
+    .data(data)
+    .enter()
+    .append('rect')
+      .attr('opacity', 0.7)
+      .attr('x', d => xs(d.key))
+      .attr('y', d => ys(d.value))
+      .attr('height', d => height - ys(d.value))
+      .attr('width', xs.bandwidth())
+      .attr('fill', d => colorScale(d.key))
+      .on("mousemove", d => {
+         tooltip
+           .style("left", d3.event.pageX - 50 + "px")
+           .style("top", d3.event.pageY - 70 + "px")
+           .style("display", "inline-block")
+           .html(`${d.key} <br> ${d.value}%`);
+      })
+     .on("mouseout", d => {tooltip.style("display", "none")});
+  }
+
+  // ---- Scene 3 Charts ---- //
+
+  function showChart3a(dimension) {
+    // prepare data for rendering.
+    dimValue = dimensionValues[dimension][0]
+
+    series1 = state.dataMap[dimValue]['EN.ATM.CO2E.SF.KT']
+    series2 = state.dataMap[dimValue]['EN.ATM.CO2E.LF.KT']
+    series3 = state.dataMap[dimValue]['EN.ATM.CO2E.GF.KT']
+
+    data = series1.map(d => {
+      return {
+        year: d.year,
+        'EN.ATM.CO2E.SF.KT': d.value,
+        'EN.ATM.CO2E.LF.KT': series2.filter(e => {return e.year == d.year})[0].value,
+        'EN.ATM.CO2E.GF.KT': series3.filter(e => {return e.year == d.year})[0].value
+      }
+    })
+
+    var margin = {top: 20, right: 180, bottom: 50, left: 60};
+    width = state.chartWidth - margin.left - margin.right;
+    height = state.chartHeight - margin.top - margin.bottom;
+
+    // append the svg object to the body of the page
+    var svg = d3.select("#mychart")
+      .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+        .attr("transform",
+              "translate(" + margin.left + "," + margin.top + ")");
+
+    // Create stacked data.
+    keys = ['EN.ATM.CO2E.SF.KT', 'EN.ATM.CO2E.LF.KT', 'EN.ATM.CO2E.GF.KT']
+    const stackedSeries = d3.stack().order(d3.stackOrderDescending).keys(keys)(data);
+
+    // X-axis
+    const xs = d3.scalePoint()
+      .domain(data.map(d => {return d.year}))
+      .range([0, width])
+
+    svg.append("g")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(xs).tickValues(
+                    xs.domain().filter((d, i) => i % 4 === 0)));
+
+    svg.append("text")
+      .attr("transform",
+            `translate(${width/2}, ${height+40})`)
+      .attr("class", "axis-label")
+      .text("Year")
+
+    // Y-axis
+    const ys = d3.scaleLinear()
+                 .range([height, 0])
+                 .domain([
+                   d3.min(stackedSeries, series => d3.min(series, d => d[0])),
+                   d3.max(stackedSeries, series => d3.max(series, d => d[1]))
+                 ]).nice()
+
+    svg.append("g").call(d3.axisLeft(ys).tickFormat(d => {
+                            v = parseInt(d)/1000000.0;
+                            return `${v}M`}));
+
+    svg.append("text")
+          .attr("transform", "rotate(-90)")
+          .attr("y", -margin.left+20)
+          .attr("x", -(height / 2))
+          .attr("class", "axis-label")
+          .text("C02 Emissions In Kilotons");
+
+    const area = d3.area()
+                     .x(d => xs(d.data.year))
+                     .y0(d => ys(d[0]))
+                     .y1(d => ys(d[1]))
+                     .curve(d3.curveBasis);
+
+    colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(keys)
+
+    svg.selectAll('.area')
+        .data(stackedSeries)
+        .enter()
+        .append('path')
+          .attr('class', 'area')
+          .attr('d', area)
+          .attr('fill', d => colorScale(d.key))
+
+    const keyValues = {
+        'EN.ATM.CO2E.SF.KT': 'Solid Fuels',
+        'EN.ATM.CO2E.LF.KT': 'Liquid Fuels',
+        'EN.ATM.CO2E.GF.KT': 'Gaseous Fuels'
+    }
+    showLegend(svg, width, keyValues, colorScale)
+    // annotations.
+    const annotations = []
+    annotations.push(
+      ...
+      [
+        {
+          note: {
+            label:  `Solid fuels are a major source for CO2 emissions.` +
+                    `But their usage has continued to grow since 1960.`
+          },
+          connector: {
+            end: "arrow",
+            type: "line",
+            points: 2,
+            lineType: "horizontal"
+          },
+          x: width,
+          y: 0.90 * height,
+          dy: -20,
+          dx: +20
+        }
+      ]
+    )
+    const makeAnnotations = d3.annotation().annotations(annotations)
+    svg.append("g").call(makeAnnotations)
+  }
+
+  function showChart4a(dimension) {
+    // prepare data for rendering.
+    const dimValue = dimensionValues[dimension][0]
+    const measures = ['EN.CO2.ETOT.ZS', 'EN.CO2.MANF.ZS',
+                      'EN.CO2.BLDG.ZS', 'EN.CO2.TRAN.ZS']
+    // first series for iterating over year
+    series1 = state.dataMap[dimValue]['EN.CO2.ETOT.ZS']
+                   .filter(d => d.year <= 2014)
+    data = series1.map(d => {
+      e = {}
+      e.year = d.year
+      sum = 0
+      measures.forEach(m => {
+        e[m] = state.dataMap[dimValue][m]
+                    .filter(i => {return i.year == d.year})[0].value;
+        sum += e[m];
+      })
+      e['EN.CO2.OTHX.ZS'] = (100 - sum);
+      return e
+    })
+
+    var margin = {top: 20, right: 180, bottom: 40, left: 60};
+    width = state.chartWidth - margin.left - margin.right;
+    height = state.chartHeight - margin.top - margin.bottom;
+
+    // append the svg object to the body of the page
+    var svg = d3.select("#mychart")
+      .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+        .attr("transform",
+              "translate(" + margin.left + "," + margin.top + ")");
+
+    // Create stacked data.
+    const keys = measures.concat(['EN.CO2.OTHX.ZS'])
+    const stackedSeries = d3.stack().order(d3.stackOrderDescending)
+                            .keys(keys)(data);
+
+    // X-Axis
+    const xs = d3.scalePoint()
+      .domain(data.map(d => {return d.year}))
+      .range([0, width])
+
+    svg.append("g")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(xs).tickValues(
+                    xs.domain().filter((d, i) => i % 4 === 0)));
+
+    svg.append("text")
+      .attr("transform",
+            `translate(${width/2}, ${height+40})`)
+      .attr("class", "axis-label")
+      .text("Year")
+
+    // Y-Axis
+    const ys = d3.scaleLinear()
+                 .range([height, 0])
+                 .domain([
+                   d3.min(stackedSeries, series => d3.min(series, d => d[0])),
+                   d3.max(stackedSeries, series => d3.max(series, d => d[1]))
+                 ]).nice()
+
+    svg.append("g").call(d3.axisLeft(ys).tickFormat(d => {
+                            return `${d}%`}));
+
+    svg.append("text")
+          .attr("transform", "rotate(-90)")
+          .attr("y", -margin.left+20)
+          .attr("x", -(height / 2))
+          .attr("class", "axis-label")
+          .text("% Share of CO2 Emissions");
+
+    const area = d3.area()
+                   .x(d => xs(d.data.year))
+                   .y0(d => ys(d[0]))
+                   .y1(d => ys(d[1]))
+                   .curve(d3.curveBasis);
+
+    // XXX: TODO need common color scheme
+    colorScale = d3.scaleOrdinal(d3.schemeCategory10)
+
+    svg.selectAll('.area')
+        .data(stackedSeries)
+        .enter()
+        .append('path')
+          .attr('class', 'area')
+          .attr('d', area)
+          .attr('fill', d => colorScale(d.key))
+
+    keyValues = {
+      'EN.CO2.ETOT.ZS': 'Electricity & Heat',
+      'EN.CO2.MANF.ZS': 'Manufacturing',
+      'EN.CO2.BLDG.ZS': 'Buildings',
+      'EN.CO2.TRAN.ZS': 'Transportion',
+      'EN.CO2.OTHX.ZS': 'Others'
+    }
+    showLegend(svg, width, keyValues, colorScale)
+    const annotations = []
+    annotations.push(
+      ...
+      [
+        {
+          note: {
+            label:  `There has been substantial growth in % of CO2 emissions ` +
+                    `from electricity and heat production.`
+          },
+          connector: {
+            end: "arrow",
+            type: "line",
+            points: 2,
+            lineType: "horizontal"
+          },
+          x: width,
+          y: 0.60 * height,
+          dy: +40,
+          dx: +20
+        }
+      ]
+    )
+    const makeAnnotations = d3.annotation().annotations(annotations)
+    svg.append("g").call(makeAnnotations)
+
+  }
+
+  // Chart map for each scene.
+  const chartMap = {
+    1: {
+        'world': showChart1a,
+        'region': showChart1a,
+        'incomeGroup': showChart1a
+    },
+    2: {
+        'region': showChart2a,
+        'incomeGroup': showChart2a
+    },
+    3: {
+        'world': showChart3a
+    },
+    4: {
+        'world': showChart4a
+    }
+  }
+
+  function showChart(sceneNo, dimension) {
+    console.log(`In showChart(${sceneNo},${dimension})`);
+    //console.log(state.data)
+    chartMap[sceneNo][dimension](dimension);
+  }
+
+  function showScene(sceneNo, dimension="") {
+    console.log(`In showScene(${sceneNo}, ${dimension})`)
+    e = document.getElementById("p"+state.currSceneNo);
+    e.classList.remove("active");
+
+    e = document.getElementById("p"+sceneNo);
+    e.classList.add("active");
+
+    document.getElementById("caption").innerHTML = ""
+    document.getElementById("dimensions").innerHTML = ""
+    document.getElementById("mychart").innerHTML = ""
+    if (dimension == "") {
+      dimension = scenes[sceneNo]["defaultDimension"]
+    }
+    console.log(scenes[sceneNo]["defaultDimension"])
+    showSceneCaption(sceneNo, dimension)
+    showDimensions(sceneNo, dimension)
+    if (state.data == null) {
+      console.log("No data, go fetch!")
+      loadData(() => showChart(sceneNo, dimension))
+    } else {
+        console.log("Have data!")
+        showChart(sceneNo, dimension);
+    }
+    state.currSceneNo = sceneNo
+  }
+
+</script>
+</body>
+</html>

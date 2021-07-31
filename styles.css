@@ -1,0 +1,154 @@
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: sans-serif;
+  background-color: #FFFFF0;
+}
+
+text {
+  font-family: sans-serif;
+}
+
+.title {
+  padding: 5px;
+  text-align: center;
+  font-size: 30px;
+  color: black;
+}
+
+.caption {
+  text-align: center;
+  font-size: 1.0em;
+  padding: 2px;
+  font-weight: bold;
+  color: #635F5D;
+}
+
+.dimensions {
+  text-align: right;
+  padding: 1px 30px
+}
+
+.chart {
+  float: left;
+  width: 66%;
+  height: 80%;
+  background-color: white;
+  margin:0.5%;
+  border-color: grey;
+  border-style: solid;
+  border-width: thin
+}
+
+.message {
+  float: left;
+  width: 32%;
+  height:80%;
+  margin:0.5%;
+  padding: 10px;
+  background-color: white;
+}
+
+.pagination {
+  display: inline-block;
+  float: left;
+  font-size: 1.0em;
+  fill: #635F5D;
+  width: 100%;
+  text-align: right;
+}
+
+.pagination a {
+  color: black;
+  float: left;
+  padding: 8px 16px;
+  text-decoration: none;
+}
+
+.pagination a.active {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.pagination a:hover:not(.active) {background-color: #ddd;}
+
+.toolTip {
+  position: absolute;
+  display: none;
+  min-width: 80px;
+  height: auto;
+  background: none repeat scroll 0 0 #ffffff;
+  border: 1px solid #6F257F;
+  padding: 14px;
+  text-align: center;
+}
+
+.line-path {
+  fill: none;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  mix-blend-mode: multiply;
+}
+
+.chart-text text {
+  font-size: 0.75rem;
+  fill: #635F5D;
+}
+
+.tick text {
+  font-size: 0.75rem;
+  fill: #635F5D;
+}
+
+.tick line {
+  stroke: #C0C0BB;
+}
+
+.axis-label {
+  font-size: 1.0em;
+  fill: #635F5D;
+  text-anchor: middle;
+}
+
+.title {
+  font-size: 2.25em;
+  fill: #635F5D;
+}
+
+.area {
+  opacity: 0.70;
+}
+
+svg .annotation.callout.rect path.subject{
+  fill-opacity: .1;
+}
+
+svg .annotation.callout.rect path.subject {
+  fill: #546E7A;
+  stroke: none;
+  stroke-dasharray: 2, 8;
+}
+
+svg .annotation.rect text {
+  fill: #546E7A;
+  font-size: .8em;
+}
+
+.annotation text {
+    fill: #546E7A;
+    font-size: .8em;
+}
+
+.annotation-note-bg {
+    fill: rgba(0, 0, 0, 0);
+}
+
+.annotation path {
+    stroke: #546E7A;
+    stroke-width: 3;
+    fill: none;
+}
