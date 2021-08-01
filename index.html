@@ -18,52 +18,72 @@
             {
                 name: 'world',
                 label: 'World',
-                title: 'CO2 Emission Growth (World)'
+                title: 'CO2 Emissions in Kilotons (World)'
             },
             {
                 name: 'region',
                 label: 'By Regions',
-                title: 'CO2 Emission Growth (By Regions)'
+                title: 'CO2 Emissions in Kilotons (By Regions)'
             },
             {
               name: 'incomeGroup',
               label : 'By Income Group',
-              title: 'CO2 Emission Growth (By Income Groups)'
+              title: 'CO2 Emissions in Kilotons (By Income Groups)'
             }
         ]
       },
       2: {
-        defaultDimension: "incomeGroup",
+        defaultDimension: "region",
         dimensions: [
-            {
-              name: 'incomeGroup',
-              label : 'By Income Group',
-              title: '% Share of CO2 Emissions in 2016 (By Income Group)'
-            },
             {
               name: 'region',
               label: 'By Regions',
-              title: '% Share of CO2 Emissions in 2016 (By Region)'
+              title: '% Share of CO2 Emissions (By Region)'
+            },
+            {
+              name: 'incomeGroup',
+              label : 'By Income Group',
+              title: '% Share of CO2 Emissions (By Income Group)'
             }
         ]
       },
       3: {
-        defaultDimension: "world",
+        defaultDimension: "region",
         dimensions: [
           {
             name: 'world',
             label: 'World',
-            title: 'CO2 Emissions Growth By Fuel Type'
+            title: '% Share of CO2 Emissions From Solid Fuels (World)'
+          },
+          {
+            name: 'region',
+            label: 'By Regions',
+            title: '% Share of CO2 Emissions From Solid Fuels (By Region)'
+          },
+          {
+            name: 'incomeGroup',
+            label : 'By Income Group',
+            title: '% Share of CO2 Emissions From Solid Fuels (By Income Group)'
           }
         ]
       },
       4: {
-        defaultDimension: "world",
+        defaultDimension: "region",
         dimensions: [
           {
             name: 'world',
             label: 'World',
-            title: 'Growth In % Share Of CO2 Emissions By Purpose'
+            title: '% Share of CO2 Emissions From Heat & Electricity Production (World)'
+          },
+          {
+            name: 'region',
+            label: 'By Regions',
+            title: '% Share of CO2 Emissions From Heat & Electricity Production (By Region)'
+          },
+          {
+            name: 'incomeGroup',
+            label: 'By Income Group',
+            title: '% Share of CO2 Emissions From Heat & Electricity Production (By Income Group)'
           }
         ]
       }
@@ -96,8 +116,7 @@
     <div id="dimensions" class="dimensions"></div>
     <div id="mychart"></div>
   </div>
-  <div class="message">
-    <p> Message about the chart!
+  <div id="message" class="message">
   <div>
 
 <script>
@@ -148,11 +167,14 @@
   }
 
   function showDimensions(sceneNo, dimension) {
-    console.log(`${sceneNo}, ${dimension}`)
+
     scenes[sceneNo].dimensions.forEach(d => {
-      console.log(`showScene(${sceneNo}, ${d.name})`)
-      d3.select("#dimensions")
-        .append('input')
+      label = d3.select("#dimensions")
+                .append('label')
+                .attr('class', 'radio-container')
+                .html(d.label)
+
+      label.append('input')
           .attr('id', d.name)
           .attr('type', 'radio')
           .attr('name', 'dimension')
@@ -164,19 +186,30 @@
           document.getElementById(d.name).checked = true
       }
 
-      d3.select("#dimensions")
-        .append('label').html(d.label)
+      label.append('span')
+          .attr('class', 'checkmark')
     })
   }
 
   function getSeries(measure, dimension) {
     dimValues = dimensionValues[dimension];
-    return dimValues.map(dim => {
+    series = dimValues.map(dim => {
         return {
           "key": dim,
           "values": state.dataMap[dim][measure]
         }
       });
+
+      if (dimension != 'world') {
+        series.push(
+          {
+            "key": "World",
+            "values": state.dataMap["World"][measure]
+          }
+        )
+      }
+
+    return series;
   }
 
   function showLegend(svg, width, keyValues, colorScale) {
@@ -207,7 +240,9 @@
 
   function showChart1a(dimension) {
     // get series to plot
-    seriesMap = getSeries("EN.ATM.CO2E.KT", dimension)
+    seriesMap = getSeries("EN.ATM.CO2E.KT", dimension).filter(s => {
+      return (dimension == 'world' || s.key != 'World')
+    })
 
     var margin = {top: 20, right: 180, bottom: 50, left: 60};
     width = state.chartWidth - margin.left - margin.right;
@@ -271,38 +306,34 @@
     .append('path')
       .attr('class', 'line-path')
       .attr('d', d => line(d.values))
-      .attr('stroke', d => colorScale(d.key));
+      .attr('stroke', d => colorScale(d.key))
 
     keyValues = dimNames.reduce((o, val) =>
                       { o[val] = val; return o; }, {});
 
     showLegend(svg, width, keyValues, colorScale)
-    // annotations.
+
+    // annotations and messages.
     const annotations = []
+    var msg = ""
+
     if (dimension == 'world') {
-      annotations.push(
-        ...
-        [
-          {
-            note: {
-              label: "Total CO2 emissions between 1996-2016 was more " +
-                     "than 2x the emissions in 1960-2016.",
-              align: "middle",
-              lineType: "none"
-            },
-            type: d3.annotationCalloutRect,
-            subject: {
-              width: (xs(2016) - xs(1996)),
-              height: height
-            },
-            disable: ["connector"],
-            x: xs(1996),
-            y: 0,
-            dy: ys(20000000),
-            dx: (xs(2016) - xs(2000))/2
-          }
-        ]
-      )
+
+      msg = `<p>`+
+            `Worldwide CO2 emissions are on the rise. The graph ` +
+            `shows CO2 emissions (in kilotons) the world has emitted ` +
+            `since 1960.` +
+            `<p>` +
+            `Most of the growth has come from <b>East Asia and Pacific</b> region ` +
+            ` and <b>Upper middle income countries</b> ` +
+            `due to continued increase in usage of <b>solid fuels</b> ` +
+            `for <b>heat and electricity production</b>. Use navigation links at the ` +
+            `top of that chart to know more.` +
+            `<p> Click on <b>By Regions</b> to know more about ` +
+            `region wise CO2 emissions.` +
+            `<p> Click on <b>By Income Group</b> to know more about ` +
+            `CO2 emissions by Income Groups of countries.`
+
     } else if (dimension == 'region') {
       rg1 = 'East Asia & Pacific'
       rg2 = 'Europe & Central Asia'
@@ -354,6 +385,15 @@
         ]
       )
 
+      msg = `<p>` +
+            `Since 2000, most of the growth in CO2 emissions ` +
+            `came from countries in <b>East Asia & Pacific ` +
+            `region</b>` +
+            `<p>` +
+            `Whereas, <b>Europe and Central Asia </b>witnessed a ` +
+            `considerable decline in CO2 emissions since 1988.`
+
+
     } else if (dimension == 'incomeGroup') {
       ig1 = 'Upper middle income'
       yr1 = 2004
@@ -383,116 +423,56 @@
           }
         ]
       )
+
+      msg = `<p>` +
+            `Income wise, countries in <b>Upper middle income</b> ` +
+            `group have contributed the maximum amount to the growth in CO2 emissions. Infact, ` +
+            `they have overtaken <b>High income group</b> since 2008.` +
+            `<p>` +
+            `Whereas, there has been a neglegible contribution from ` +
+            `the countries in <b>Low income</b> group `;
     }
 
     const makeAnnotations = d3.annotation().annotations(annotations)
     svg.append("g")
       .call(makeAnnotations)
+
+    d3.select("#message")
+      .append('text')
+      .html(msg)
   }
 
-  // showChart2a
-  function showChart2a(dimension, year=2016) {
-    // data to plot
-    total = state.dataMap['World']['EN.ATM.CO2E.KT'].filter(d => d.year == 2016)[0].value
-    data = dimensionValues[dimension].map(dv =>  {
-      return {
-          key: dv,
-          value: +parseFloat((state.dataMap[dv]['EN.ATM.CO2E.KT']
-                                   .filter(d => d.year == 2016)[0]
-                                   .value/total)*100).toFixed(2)
-      }
-    })
+  // --- showChart2a ---
+
+  function showChart2b(dimension) {
+    // get series to plot
+    seriesMap = getSeries("EN.ATM.CO2E.KT", dimension)
 
     var margin = {top: 20, right: 180, bottom: 50, left: 60};
     width = state.chartWidth - margin.left - margin.right;
     height = state.chartHeight - margin.top - margin.bottom;
 
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
-                         .domain(data.map(d => d.key));
+    const worldValues = seriesMap.find(s => {
+      return s.key == 'World'
+    })
 
-    var tooltip = d3.select("body")
-                    .append("div")
-                    .attr("class", "toolTip");
-
-    // append the svg object to the body of the page
-    var svg = d3.select("#mychart")
-      .append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
-      .append("g")
-        .attr("transform",
-              "translate(" + margin.left + "," + margin.top + ")");
-
-      // Add X axis --> it is a date format
-    var xs = d3.scaleBand()
-      .domain(dimensionValues[dimension])
-      .range([0, width])
-      .padding(0.1)
-
-    svg.append("g")
-      .attr("transform", "translate(0," + height + ")")
-      .call(d3.axisBottom(xs))
-
-    // Add Y axis
-    var ys = d3.scaleLinear()
-      .domain([0, d3.max(data, d => d.value)])
-      .range([ height, 0 ]);
-
-    svg.append("g")
-      .call(d3.axisLeft(ys).tickFormat(d => {
-        return `${d}%`
-      }));
-
-    svg.append("text")
-          .attr("transform", "rotate(-90)")
-          .attr("y", -margin.left+20)
-          .attr("x", -(height / 2))
-          .attr("class", "axis-label")
-          .text("% Share of C02 Emissions");
-
-    svg.append('g')
-    .selectAll('rect')
-    .data(data)
-    .enter()
-    .append('rect')
-      .attr('opacity', 0.7)
-      .attr('x', d => xs(d.key))
-      .attr('y', d => ys(d.value))
-      .attr('height', d => height - ys(d.value))
-      .attr('width', xs.bandwidth())
-      .attr('fill', d => colorScale(d.key))
-      .on("mousemove", d => {
-         tooltip
-           .style("left", d3.event.pageX - 50 + "px")
-           .style("top", d3.event.pageY - 70 + "px")
-           .style("display", "inline-block")
-           .html(`${d.key} <br> ${d.value}%`);
+    const pctSeriesMap = seriesMap.filter(s => s.key != 'World').map(s => {
+      pctValues = s.values.map(v => {
+        const worldValue = worldValues.values.find(wv => {
+          return wv.year == v.year
+        }).value
+        return {
+          year: v.year,
+          value: +((v.value/worldValue)*100).toFixed(2)
+        }
       })
-     .on("mouseout", d => {tooltip.style("display", "none")});
-  }
-
-  // ---- Scene 3 Charts ---- //
-
-  function showChart3a(dimension) {
-    // prepare data for rendering.
-    dimValue = dimensionValues[dimension][0]
-
-    series1 = state.dataMap[dimValue]['EN.ATM.CO2E.SF.KT']
-    series2 = state.dataMap[dimValue]['EN.ATM.CO2E.LF.KT']
-    series3 = state.dataMap[dimValue]['EN.ATM.CO2E.GF.KT']
-
-    data = series1.map(d => {
       return {
-        year: d.year,
-        'EN.ATM.CO2E.SF.KT': d.value,
-        'EN.ATM.CO2E.LF.KT': series2.filter(e => {return e.year == d.year})[0].value,
-        'EN.ATM.CO2E.GF.KT': series3.filter(e => {return e.year == d.year})[0].value
+        key: s.key,
+        values: pctValues
       }
     })
 
-    var margin = {top: 20, right: 180, bottom: 50, left: 60};
-    width = state.chartWidth - margin.left - margin.right;
-    height = state.chartHeight - margin.top - margin.bottom;
+    dimNames = pctSeriesMap.map(d => d.key)
 
     // append the svg object to the body of the page
     var svg = d3.select("#mychart")
@@ -503,20 +483,14 @@
         .attr("transform",
               "translate(" + margin.left + "," + margin.top + ")");
 
-    // Create stacked data.
-    keys = ['EN.ATM.CO2E.SF.KT', 'EN.ATM.CO2E.LF.KT', 'EN.ATM.CO2E.GF.KT']
-    const stackedSeries = d3.stack().order(d3.stackOrderDescending).keys(keys)(data);
-
-    // X-axis
-    const xs = d3.scalePoint()
-      .domain(data.map(d => {return d.year}))
-      .range([0, width])
-
+      // X-Axis
+    var xs = d3.scalePoint()
+      .domain(pctSeriesMap[0]["values"].map(d => {return d.year}))
+      .range([ 0, width ])
     svg.append("g")
       .attr("transform", "translate(0," + height + ")")
       .call(d3.axisBottom(xs).tickValues(
-                    xs.domain().filter((d, i) => i % 4 === 0)));
-
+            xs.domain().filter((d, i) => i % 4 === 0)));
     svg.append("text")
       .attr("transform",
             `translate(${width/2}, ${height+40})`)
@@ -524,97 +498,164 @@
       .text("Year")
 
     // Y-axis
-    const ys = d3.scaleLinear()
-                 .range([height, 0])
-                 .domain([
-                   d3.min(stackedSeries, series => d3.min(series, d => d[0])),
-                   d3.max(stackedSeries, series => d3.max(series, d => d[1]))
-                 ]).nice()
-
-    svg.append("g").call(d3.axisLeft(ys).tickFormat(d => {
-                            v = parseInt(d)/1000000.0;
-                            return `${v}M`}));
-
+    const yMax = d3.max(pctSeriesMap.map(d => {return d3.max(d["values"], e => e.value)}))
+    console.log(`yMax = ${yMax}`)
+    var ys = d3.scaleLinear()
+      .domain([0, yMax])
+      .range([ height, 0 ]);
+    svg.append("g")
+      .call(d3.axisLeft(ys).tickFormat(d => {return `${d}%`}));
     svg.append("text")
           .attr("transform", "rotate(-90)")
           .attr("y", -margin.left+20)
           .attr("x", -(height / 2))
           .attr("class", "axis-label")
-          .text("C02 Emissions In Kilotons");
+          .text("% Of CO2 Emissions");
 
-    const area = d3.area()
-                     .x(d => xs(d.data.year))
-                     .y0(d => ys(d[0]))
-                     .y1(d => ys(d[1]))
-                     .curve(d3.curveBasis);
+    const line = d3.line()
+        .x(d => xs(d.year))
+        .y(d => ys(d.value))
+        .curve(d3.curveBasis);
 
-    colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(keys)
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
+                         .domain(pctSeriesMap.map(d => d.key));
 
-    svg.selectAll('.area')
-        .data(stackedSeries)
-        .enter()
-        .append('path')
-          .attr('class', 'area')
-          .attr('d', area)
-          .attr('fill', d => colorScale(d.key))
+    // Add the line
+    svg.append('g')
+    .selectAll('.line-path')
+    .data(pctSeriesMap)
+    .enter()
+    .append('path')
+      .attr('class', 'line-path')
+      .attr('d', d => line(d.values))
+      .attr('stroke', d => colorScale(d.key))
 
-    const keyValues = {
-        'EN.ATM.CO2E.SF.KT': 'Solid Fuels',
-        'EN.ATM.CO2E.LF.KT': 'Liquid Fuels',
-        'EN.ATM.CO2E.GF.KT': 'Gaseous Fuels'
-    }
+    keyValues = dimNames.reduce((o, val) =>
+                      { o[val] = val; return o; }, {});
+
     showLegend(svg, width, keyValues, colorScale)
-    // annotations.
+
+    // annotations and messages.
     const annotations = []
-    annotations.push(
-      ...
-      [
-        {
-          note: {
-            label:  `Solid fuels are a major source for CO2 emissions.` +
-                    `But their usage has continued to grow since 1960.`
+    var msg = ""
+
+    if (dimension == 'incomeGroup') {
+      ig1 = 'Upper middle income'
+      yr1 = 2008
+
+      const uig = pctSeriesMap.find(d => {return d.key == ig1})
+      const y1 = ys(uig['values'].find(d => {return d.year == yr1}).value)
+      const x1 = xs(yr1)
+
+      annotations.push(
+        ...
+        [
+          {
+            note: {
+              label:  `Starting 2008, % share of CO2 emissions from ` +
+                      `Upper middle group have exceeded that of High ` +
+                      `income group.`
+            },
+            connector: {
+              end: "arrow",
+              type: "line",
+              points: 2,
+              lineType: "horizontal"
+            },
+            x: x1,
+            y: y1,
+            dy: 75,
+            dx: -60
+          }
+        ]
+      )
+
+      msg = `<p>` +
+            `% share of CO2 emissions from <b>Upper middle income</b> ` +
+            `has been steadily increasing, where as that of <b>High income</b> ` +
+            `has been decreasing.`
+
+    } else if (dimension == 'region') {
+
+      const r1 = 'Europe & Central Asia'
+      const yr1 = 1988
+
+      const uig1 = pctSeriesMap.find(d => {return d.key == r1})
+      const y1 = ys(uig1['values'].find(d => {return d.year == yr1}).value)
+      const x1 = xs(yr1)
+
+      const r2 = 'East Asia & Pacific'
+      const yr2 = 1988
+
+      const uig2 = pctSeriesMap.find(d => {return d.key == r2})
+      const y2 = ys(uig2['values'].find(d => {return d.year == yr2}).value)
+      const x2 = xs(yr2)
+
+      annotations.push(
+        ...
+        [
+          {
+            note: {
+              label:  `% share of Europe & Central Asia has steadily declined.`
+            },
+            connector: {
+              end: "arrow",
+              type: "line",
+              points: 2,
+              lineType: "horizontal"
+            },
+            x: x1,
+            y: y1,
+            dy: 30,
+            dx: -20
           },
-          connector: {
-            end: "arrow",
-            type: "line",
-            points: 2,
-            lineType: "horizontal"
-          },
-          x: width,
-          y: 0.90 * height,
-          dy: -20,
-          dx: +20
-        }
-      ]
-    )
+          {
+            note: {
+              label:  `% share of East Asia & Pacific has steadily increased.`
+            },
+            connector: {
+              end: "arrow",
+              type: "line",
+              points: 2,
+              lineType: "horizontal"
+            },
+            x: x2,
+            y: y2,
+            dy: 30,
+            dx: 40
+          }
+        ]
+      )
+
+      msg = `<p>` +
+            `% share of CO2 emissions from <b>${r1}</b> ` +
+            `and <b>North America</b> regions ` +
+            `has been declining steadily, ` +
+            `whereas the share of CO2 emissions from <b>${r2}</b> ` +
+            `region has been steadily increasing.`
+    }
+
     const makeAnnotations = d3.annotation().annotations(annotations)
-    svg.append("g").call(makeAnnotations)
+    svg.append("g")
+      .call(makeAnnotations)
+
+    d3.select("#message")
+      .append('text')
+      .html(msg)
   }
 
-  function showChart4a(dimension) {
-    // prepare data for rendering.
-    const dimValue = dimensionValues[dimension][0]
-    const measures = ['EN.CO2.ETOT.ZS', 'EN.CO2.MANF.ZS',
-                      'EN.CO2.BLDG.ZS', 'EN.CO2.TRAN.ZS']
-    // first series for iterating over year
-    series1 = state.dataMap[dimValue]['EN.CO2.ETOT.ZS']
-                   .filter(d => d.year <= 2014)
-    data = series1.map(d => {
-      e = {}
-      e.year = d.year
-      sum = 0
-      measures.forEach(m => {
-        e[m] = state.dataMap[dimValue][m]
-                    .filter(i => {return i.year == d.year})[0].value;
-        sum += e[m];
-      })
-      e['EN.CO2.OTHX.ZS'] = (100 - sum);
-      return e
+  // ---- Scene 3 Charts ---- //
+
+  function showChart3b(dimension) {
+    seriesMap = getSeries("EN.ATM.CO2E.SF.ZS", dimension).filter(s => {
+      return (dimension == 'world' || s.key != 'World')
     })
 
-    var margin = {top: 20, right: 180, bottom: 40, left: 60};
+    var margin = {top: 20, right: 180, bottom: 50, left: 60};
     width = state.chartWidth - margin.left - margin.right;
     height = state.chartHeight - margin.top - margin.bottom;
+
+    dimNames = seriesMap.map(d => d.key)
 
     // append the svg object to the body of the page
     var svg = d3.select("#mychart")
@@ -625,113 +666,306 @@
         .attr("transform",
               "translate(" + margin.left + "," + margin.top + ")");
 
-    // Create stacked data.
-    const keys = measures.concat(['EN.CO2.OTHX.ZS'])
-    const stackedSeries = d3.stack().order(d3.stackOrderDescending)
-                            .keys(keys)(data);
-
-    // X-Axis
-    const xs = d3.scalePoint()
-      .domain(data.map(d => {return d.year}))
-      .range([0, width])
-
+      // X-Axis
+    var xs = d3.scalePoint()
+      .domain(seriesMap[0]["values"].map(d => {return d.year}))
+      .range([ 0, width ])
     svg.append("g")
       .attr("transform", "translate(0," + height + ")")
       .call(d3.axisBottom(xs).tickValues(
-                    xs.domain().filter((d, i) => i % 4 === 0)));
-
+            xs.domain().filter((d, i) => i % 4 === 0)));
     svg.append("text")
       .attr("transform",
             `translate(${width/2}, ${height+40})`)
       .attr("class", "axis-label")
       .text("Year")
 
-    // Y-Axis
-    const ys = d3.scaleLinear()
-                 .range([height, 0])
-                 .domain([
-                   d3.min(stackedSeries, series => d3.min(series, d => d[0])),
-                   d3.max(stackedSeries, series => d3.max(series, d => d[1]))
-                 ]).nice()
-
-    svg.append("g").call(d3.axisLeft(ys).tickFormat(d => {
-                            return `${d}%`}));
-
+    // Y-axis
+    const yMax = d3.max(seriesMap.map(d => {return d3.max(d["values"], e => e.value)}))
+    console.log(`yMax = ${yMax}`)
+    var ys = d3.scaleLinear()
+      .domain([0, yMax])
+      .range([ height, 0 ]);
+    svg.append("g")
+      .call(d3.axisLeft(ys).tickFormat(d => {return `${d}%`}));
     svg.append("text")
           .attr("transform", "rotate(-90)")
           .attr("y", -margin.left+20)
           .attr("x", -(height / 2))
           .attr("class", "axis-label")
-          .text("% Share of CO2 Emissions");
+          .text("% Share Due To Solid Fuels");
 
-    const area = d3.area()
-                   .x(d => xs(d.data.year))
-                   .y0(d => ys(d[0]))
-                   .y1(d => ys(d[1]))
-                   .curve(d3.curveBasis);
+    const line = d3.line()
+        .x(d => xs(d.year))
+        .y(d => ys(d.value))
+        .curve(d3.curveBasis);
 
-    // XXX: TODO need common color scheme
-    colorScale = d3.scaleOrdinal(d3.schemeCategory10)
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
+                         .domain(seriesMap.map(d => d.key));
 
-    svg.selectAll('.area')
-        .data(stackedSeries)
-        .enter()
-        .append('path')
-          .attr('class', 'area')
-          .attr('d', area)
-          .attr('fill', d => colorScale(d.key))
+    // Add the line
+    svg.append('g')
+    .selectAll('.line-path')
+    .data(seriesMap)
+    .enter()
+    .append('path')
+      .attr('class', 'line-path')
+      .attr('d', d => line(d.values))
+      .attr('stroke', d => colorScale(d.key))
 
-    keyValues = {
-      'EN.CO2.ETOT.ZS': 'Electricity & Heat',
-      'EN.CO2.MANF.ZS': 'Manufacturing',
-      'EN.CO2.BLDG.ZS': 'Buildings',
-      'EN.CO2.TRAN.ZS': 'Transportion',
-      'EN.CO2.OTHX.ZS': 'Others'
-    }
+    keyValues = dimNames.reduce((o, val) =>
+                      { o[val] = val; return o; }, {});
+
     showLegend(svg, width, keyValues, colorScale)
     const annotations = []
-    annotations.push(
-      ...
-      [
-        {
-          note: {
-            label:  `There has been substantial growth in % of CO2 emissions ` +
-                    `from electricity and heat production.`
-          },
-          connector: {
-            end: "arrow",
-            type: "line",
-            points: 2,
-            lineType: "horizontal"
-          },
-          x: width,
-          y: 0.60 * height,
-          dy: +40,
-          dx: +20
-        }
-      ]
-    )
-    const makeAnnotations = d3.annotation().annotations(annotations)
-    svg.append("g").call(makeAnnotations)
+    var msg = ""
+    if (dimension == 'world') {
+      msg = `<p>` +
+            `After the initial decline, the % share of CO2 ` +
+            `emissions worldwide due to burning of <b>solid fuels</b> `+
+            `has remained steady and ` +
+            `not declined as much as anticipated.`
 
+    } else if (dimension == 'region') {
+      const r1 = 'East Asia & Pacific'
+      const yr1 = 2008
+
+      const uig1 = seriesMap.find(d => {return d.key == r1})
+      const y1 = ys(uig1['values'].find(d => {return d.year == yr1}).value)
+      const x1 = xs(yr1)
+
+      annotations.push(
+        ...
+        [
+          {
+            note: {
+              label:  `% share has been steadily ` +
+                      `increasing in East Asia & Pacific region.`
+            },
+            connector: {
+              end: "arrow",
+              type: "line",
+              points: 2,
+              lineType: "horizontal"
+            },
+            x: x1,
+            y: y1,
+            dy: -30,
+            dx: -20
+          }
+        ]
+      )
+      msg = `<p>` +
+            `While the % share of CO2 emissions from burning <b>solid fuels</b> ` +
+            `has either remained steady or marginally declined in most regions ` +
+            `of the world, ` +
+            `it has been steadily increasing in <b>${r1}</b> region.`
+    } else if (dimension == 'incomeGroup') {
+      msg = `<p>` +
+            `There has been a steady increase in % share of CO2 emissions ` +
+            `from <b>Upper and middle income</b> group from burning of <b>solid fuels</b>. ` +
+            `Whereas there has been substantial decline in the <b>Low income</b> group.`
+    }
+
+    const makeAnnotations = d3.annotation().annotations(annotations)
+    svg.append("g")
+      .call(makeAnnotations)
+
+    d3.select("#message")
+      .append('text')
+      .html(msg)
+  }
+
+  // ----- chart 4 ------
+  function showChart4b(dimension) {
+
+    // get series to plot
+    seriesMap = getSeries("EN.CO2.ETOT.ZS", dimension).filter(s => {
+      return (dimension == 'world' || s.key != 'World')
+    })
+
+    var margin = {top: 20, right: 180, bottom: 50, left: 60};
+    width = state.chartWidth - margin.left - margin.right;
+    height = state.chartHeight - margin.top - margin.bottom;
+
+    dimNames = seriesMap.map(d => d.key)
+
+    // append the svg object to the body of the page
+    var svg = d3.select("#mychart")
+      .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+        .attr("transform",
+              "translate(" + margin.left + "," + margin.top + ")");
+
+      // X-Axis
+    var xs = d3.scalePoint()
+      .domain(seriesMap[0]["values"].map(d => {return d.year}))
+      .range([ 0, width ])
+    svg.append("g")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(xs).tickValues(
+            xs.domain().filter((d, i) => i % 4 === 0)));
+    svg.append("text")
+      .attr("transform",
+            `translate(${width/2}, ${height+40})`)
+      .attr("class", "axis-label")
+      .text("Year")
+
+    // Y-axis
+    const yMax = d3.max(seriesMap.map(d => {return d3.max(d["values"], e => e.value)}))
+    console.log(`yMax = ${yMax}`)
+    var ys = d3.scaleLinear()
+      .domain([0, yMax])
+      .range([ height, 0 ]);
+    svg.append("g")
+      .call(d3.axisLeft(ys).tickFormat(d => {return `${d}%`}));
+    svg.append("text")
+          .attr("transform", "rotate(-90)")
+          .attr("y", -margin.left+20)
+          .attr("x", -(height / 2))
+          .attr("class", "axis-label")
+          .text("% Share From Heat & Electricity Production");
+
+    const line = d3.line()
+        .x(d => xs(d.year))
+        .y(d => ys(d.value))
+        .curve(d3.curveBasis);
+
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
+                         .domain(seriesMap.map(d => d.key));
+
+    // Add the line
+    svg.append('g')
+    .selectAll('.line-path')
+    .data(seriesMap)
+    .enter()
+    .append('path')
+      .attr('class', 'line-path')
+      .attr('d', d => line(d.values))
+      .attr('stroke', d => colorScale(d.key))
+
+    keyValues = dimNames.reduce((o, val) =>
+                      { o[val] = val; return o; }, {});
+
+    showLegend(svg, width, keyValues, colorScale)
+
+    const annotations = []
+    var msg = ""
+
+    if (dimension == 'world') {
+      msg = `<p>` +
+            `Worldwide, CO2 emissions resulting from ` +
+            `production of <b>heat and electricity</b> ` +
+            `is steadily on the rise.` +
+            `<p>`+
+            `In 2016, approximately <b>50%</b> of the CO2 emissions ` +
+            `were due to <b>heat and electricity production</b>.`
+
+    } else if (dimension == 'region') {
+      const r1 = 'East Asia & Pacific'
+      const yr1 = 1984
+
+      const uig1 = seriesMap.find(d => {return d.key == r1})
+      const y1 = ys(uig1['values'].find(d => {return d.year == yr1}).value)
+      const x1 = xs(yr1)
+
+      annotations.push(
+        ...
+        [
+          {
+            note: {
+              label:  `% share has been steadily ` +
+                      `increasing in East Asia & Pacific region.`
+            },
+            connector: {
+              end: "arrow",
+              type: "line",
+              points: 2,
+              lineType: "horizontal"
+            },
+            x: x1,
+            y: y1,
+            dy: +30,
+            dx: +20
+          }
+        ]
+      )
+      msg = `<p>` +
+            `The % share of CO2 emissions resulting from production ` +
+            `of <b>heat and electricity</b> has remained steady or has marginally ` +
+            `increased in most regions of the world.` +
+            `<p>` +
+            `Whearas the share has been increasing at noticeable rate in <b>${r1}</b>, owing ` +
+            `increasing demand in power.`
+
+    } else if (dimension == 'incomeGroup') {
+      const r1 = 'Upper middle income'
+      const yr1 = 1988
+
+      const uig1 = seriesMap.find(d => {return d.key == r1})
+      const y1 = ys(uig1['values'].find(d => {return d.year == yr1}).value)
+      const x1 = xs(yr1)
+
+      annotations.push(
+        ...
+        [
+          {
+            note: {
+              label:  `East Asia & Pacific region has seen a sharp ` +
+                      `rise in % share of emissions due to heat and electricity ` +
+                      `production.`
+            },
+            connector: {
+              end: "arrow",
+              type: "line",
+              points: 2,
+              lineType: "horizontal"
+            },
+            x: x1,
+            y: y1,
+            dy: +30,
+            dx: +20
+          }
+        ]
+      )
+      msg = `<p>` +
+            `Income group wise <b>${r1}</b> group ` +
+            `has seen a sharp increase in % share of CO2 emissions ` +
+            `from the activities related to heat and electricity ` +
+            `generation.`
+    }
+
+    const makeAnnotations = d3.annotation().annotations(annotations)
+    svg.append("g")
+      .call(makeAnnotations)
+
+    d3.select("#message")
+      .append('text')
+      .html(msg)
   }
 
   // Chart map for each scene.
   const chartMap = {
     1: {
-        'world': showChart1a,
-        'region': showChart1a,
-        'incomeGroup': showChart1a
+        'world':        showChart1a,
+        'region':       showChart1a,
+        'incomeGroup':  showChart1a
     },
     2: {
-        'region': showChart2a,
-        'incomeGroup': showChart2a
+        'region':       showChart2b,
+        'incomeGroup':  showChart2b
     },
     3: {
-        'world': showChart3a
+      'world':          showChart3b,
+      'region':         showChart3b,
+      'incomeGroup':    showChart3b
     },
     4: {
-        'world': showChart4a
+      'world':          showChart4b,
+      'region':         showChart4b,
+      'incomeGroup':    showChart4b
     }
   }
 
@@ -752,6 +986,8 @@
     document.getElementById("caption").innerHTML = ""
     document.getElementById("dimensions").innerHTML = ""
     document.getElementById("mychart").innerHTML = ""
+    document.getElementById("message").innerHTML = ""
+
     if (dimension == "") {
       dimension = scenes[sceneNo]["defaultDimension"]
     }
